@@ -32,7 +32,6 @@ const supabase = createClient(Env.SUPABASE_URL, Env.SUPABASE_ANON_KEY, {
 console.log('supabase', Env.SUPABASE_URL, Env.SUPABASE_ANON_KEY);
 
 interface FinanceStore {
-
   //login
   login: (email: string, password: string) => Promise<AuthResponse['data']>
 
@@ -44,6 +43,7 @@ interface FinanceStore {
 
   // Categories
   createCategory: (userId: string, name: string, type: 'income' | 'expense') => Promise<any>
+  getCategoryByCategoryId: (categoryId: string) => Promise<any>
   getCategoriesByUserId: (userId: string) => Promise<any>
   updateCategory: (id: string, updates: Partial<Category>) => Promise<any>
   deleteCategory: (id: string) => Promise<any>
@@ -65,6 +65,9 @@ interface FinanceStore {
   getMonthlyReportsByUserId: (userId: string) => Promise<any>
   updateMonthlyReport: (id: string, updates: Partial<MonthlyReport>) => Promise<any>
   deleteMonthlyReport: (id: string) => Promise<any>
+
+  // 添加 uploadIcon 
+  uploadIcon: (file: File, fileName: string) => Promise<string | null>
 }
 
 interface User {
@@ -158,6 +161,14 @@ const useFinanceStore = create<FinanceStore>(() => ({
     const { data, error } = await supabase
       .from('categories')
       .insert({ user_id: userId, name, type })
+    if (error) throw error
+    return data
+  },
+  getCategoryByCategoryId: async (categoryId) => {
+    const { data, error } = await supabase
+      .from('categories') 
+      .select('*')
+      .eq('id', categoryId)
     if (error) throw error
     return data
   },
@@ -283,7 +294,27 @@ const useFinanceStore = create<FinanceStore>(() => ({
       .eq('id', id)
     if (error) throw error
     return data
-  }
+  },
+
+  // 实现 uploadIcon 函数
+  uploadIcon: async (file, fileName) => {
+    const { error } = await supabase.storage
+      .from('category-icons')
+      .upload(fileName, file)
+
+    if (error) {
+      console.error('Error uploading file:', error)
+      return null
+    }
+    
+    // 获取上传文件的公共 URL
+    const { data } = supabase
+      .storage
+      .from('category-icons')
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
+  },
 }))
 
 export default useFinanceStore
